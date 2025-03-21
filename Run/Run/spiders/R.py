@@ -10,13 +10,12 @@ from datetime import datetime
 import time
 
 Base = declarative_base()
-
 # surname = 'McCarthy'  # 'Blunt'#'Perry'  #f/n: Stuarts/n: Bluntclub: Epsom Oddballs
 # firstname = 'Patrick'  # 'Stuart'#'Edmund'
 # club = 'Epsom oddballs'  # 'Epsom Oddballs' #'Ranelagh'
 
-
 class Character(Base):
+
     __tablename__ = 'performance_history'
     id = Column(Integer, primary_key=True, autoincrement=True)
     each_id = Column(Integer)
@@ -43,7 +42,8 @@ class RSpider(scrapy.Spider):
     def start_requests(self):
         url = "https://runbritainrankings.com/runners/runnerslookup.aspx"
         headers = {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0'
+                      '8,application/signed-exchange;v=b3;q=0.7',
             'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
@@ -56,11 +56,15 @@ class RSpider(scrapy.Spider):
             'Sec-Fetch-Site': 'same-origin',
             'Sec-Fetch-User': '?1',
             'Upgrade-Insecure-Requests': '1',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.'
+                          '0.0.0 Safari/537.36',
             'sec-ch-ua': '"Chromium";v="134", "Not:A-Brand";v="24", "Google Chrome";v="134"',
             'sec-ch-ua-mobile': '?0',
             'sec-ch-ua-platform': '"Windows"',
-            'Cookie': '_ga=GA1.1.79144015.1742471176; __gads=ID=050ff401fb8f9a31:T=1742471176:RT=1742471176:S=ALNI_MY-z6abHDVU2E-IMzcRi9WkEqMN8g; __gpi=UID=000010678a0ecbd3:T=1742471176:RT=1742471176:S=ALNI_MaSfBsZMbw2uNUlzvX8hJcFlvZOTA; __eoi=ID=ed19047d3f32abb4:T=1742471176:RT=1742471176:S=AA-AfjZm7ItHG6IviounBY35HroD; _ga_5ST66NS5G2=GS1.1.1742471176.1.1.1742471286.0.0.0'
+            'Cookie': '_ga=GA1.1.79144015.1742471176; __gads=ID=050ff401fb8f9a31:T=1742471176:RT=1742471176:S=ALNI_MY-'
+                      'z6abHDVU2E-IMzcRi9WkEqMN8g; __gpi=UID=000010678a0ecbd3:T=1742471176:RT=1742471176:S=ALNI_MaSfBsZ'
+                      'Mbw2uNUlzvX8hJcFlvZOTA; __eoi=ID=ed19047d3f32abb4:T=1742471176:RT=1742471176:S=AA-AfjZm7ItHG6Ivi'
+                      'ounBY35HroD; _ga_5ST66NS5G2=GS1.1.1742471176.1.1.1742471286.0.0.0'
         }
         surname = str(self.surname).replace('_',' ')
         firstname = str(self.firstname).replace('_',' ')
@@ -128,9 +132,9 @@ class RSpider(scrapy.Spider):
         host = 'localhost'
         port = '3306'
         database = 'bbb'
+        # Character = create_character_class(each_id)
         DATABASE_URL = f"mysql+mysqlconnector://{username}:{password}@{host}:{port}/{database}"
         engine = create_engine(DATABASE_URL)
-        # Base.metadata.drop_all(engine) #Delete existing table
         Base.metadata.create_all(engine)
         Session = sessionmaker(bind=engine)
         session = Session()
@@ -139,7 +143,13 @@ class RSpider(scrapy.Spider):
     def parse_items(self, response):
         all_blocks = response.xpath(
             '//div[@class="profile-panel"]/div[@id="cphBody_performancespanel_pnlPerformancesMain"]//tbody/tr')
+        try:
+            each_id = str(response.url.split('=')[1])
+        except:
+            each_id = ''
         session = self.database()
+        session.query(Character).filter(Character.each_id == each_id).delete(synchronize_session=False)
+        session.commit()
         for i in all_blocks:
             try:
                 event = i.xpath("td[@sorttable_customkey]//text()").get()
@@ -171,10 +181,7 @@ class RSpider(scrapy.Spider):
                 last = i.xpath('.//td[@align="center"]//span[@title]//text()').get()
             except:
                 last = ''
-            try:
-                each_id = response.url.split('=')[1]
-            except:
-                each_id = ''
+
             try:
                 firstname = str(self.firstname).replace('_', ' ')
             except:
@@ -188,7 +195,6 @@ class RSpider(scrapy.Spider):
             except:
                 surname = ''
             try:
-                session = self.database()
                 insertion_query = Character(each_id = each_id, firstname = firstname,surname = surname,
                                             club = club, event = event, time = time, race=race, SSS=SSS, vSSS=vSSS,
                                             date = date, last=last)
